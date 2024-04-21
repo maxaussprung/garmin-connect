@@ -16,7 +16,7 @@ import {
     IOauth1Token,
     IOauth2Token
 } from '../garmin/types';
-const crypto = require('crypto');
+import { generateHMAC } from './crypto';
 
 const CSRF_RE = new RegExp('name="_csrf"\\s+value="(.+?)"');
 const TICKET_RE = new RegExp('ticket=([^"]+)"');
@@ -354,10 +354,8 @@ export class HttpClient {
             consumer: consumer,
             signature_method: 'HMAC-SHA1',
             hash_function(base_string: string, key: string) {
-                return crypto
-                    .createHmac('sha1', key)
-                    .update(base_string)
-                    .digest('base64');
+                // TODO REACT-NATIVE REPLACED
+                return generateHMAC(base_string, key);
             }
         });
         return oauth;

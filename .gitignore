@@ -26,3 +26,5 @@ garmin.config.json
 
 # tests
 test
+
+examples/credentials.json

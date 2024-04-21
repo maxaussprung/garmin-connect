@@ -1,4 +1,5 @@
 import { GCWorkoutId, GarminDomain } from './types';
+import { GCActivityId } from './types/activity';
 
 export class UrlClass {
     private domain: GarminDomain;
@@ -40,6 +41,9 @@ export class UrlClass {
     }
     get ACTIVITY() {
         return `${this.GC_API}/activity-service/activity/`;
+    }
+    EXERCISE_SETS(activityId: GCActivityId) {
+        return `${this.GC_API}/activity-service/activity/${activityId}/exerciseSets`;
     }
     get STAT_ACTIVITIES() {
         return `${this.GC_API}/fitnessstats-service/activity`;

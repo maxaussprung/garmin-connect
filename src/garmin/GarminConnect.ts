@@ -1,17 +1,15 @@
-import appRoot from 'app-root-path';
-
 import FormData from 'form-data';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
-import * as fs from 'fs';
-import * as path from 'path';
+// import * as fs from 'fs';
+// import * as path from 'path';
 import { HttpClient } from '../common/HttpClient';
-import { checkIsDirectory, createDirectory, writeToFile } from '../utils';
+// import {checkIsDirectory, createDirectory, writeToFile} from '../utils';
 import { UrlClass } from './UrlClass';
 import {
     ExportFileTypeValue,
-    GCUserHash,
     GarminDomain,
+    GCUserHash,
     ICountActivities,
     IDailyStepsType,
     IGarminTokens,
@@ -42,11 +40,12 @@ import {
 
 let config: GCCredentials | undefined = undefined;
 
-try {
-    config = appRoot.require('/garmin.config.json');
-} catch (e) {
-    // Do nothing
-}
+// TODO REACT-NATIVE REMOVED
+// try {
+//     config = appRoot.require('/garmin.config.json');
+// } catch (e) {
+//     // Do nothing
+// }
 
 export type EventCallback<T> = (data: T) => void;
 
@@ -54,6 +53,7 @@ export interface GCCredentials {
     username: string;
     password: string;
 }
+
 export interface Listeners {
     [event: string]: EventCallback<any>[];
 }
@@ -96,40 +96,41 @@ export default class GarminConnect {
         );
         return this;
     }
-    exportTokenToFile(dirPath: string): void {
-        if (!checkIsDirectory(dirPath)) {
-            createDirectory(dirPath);
-        }
-        // save oauth1 to json
-        if (this.client.oauth1Token) {
-            writeToFile(
-                path.join(dirPath, 'oauth1_token.json'),
-                JSON.stringify(this.client.oauth1Token)
-            );
-        }
-        if (this.client.oauth2Token) {
-            writeToFile(
-                path.join(dirPath, 'oauth2_token.json'),
-                JSON.stringify(this.client.oauth2Token)
-            );
-        }
-    }
-    loadTokenByFile(dirPath: string): void {
-        if (!checkIsDirectory(dirPath)) {
-            throw new Error('loadTokenByFile: Directory not found: ' + dirPath);
-        }
-        let oauth1Data = fs.readFileSync(
-            path.join(dirPath, 'oauth1_token.json')
-        ) as unknown as string;
-        const oauth1 = JSON.parse(oauth1Data);
-        this.client.oauth1Token = oauth1;
 
-        let oauth2Data = fs.readFileSync(
-            path.join(dirPath, 'oauth2_token.json')
-        ) as unknown as string;
-        const oauth2 = JSON.parse(oauth2Data);
-        this.client.oauth2Token = oauth2;
-    }
+    // exportTokenToFile(dirPath: string): void {
+    //     if (!checkIsDirectory(dirPath)) {
+    //         createDirectory(dirPath);
+    //     }
+    //     // save oauth1 to json
+    //     if (this.client.oauth1Token) {
+    //         writeToFile(
+    //             path.join(dirPath, 'oauth1_token.json'),
+    //             JSON.stringify(this.client.oauth1Token)
+    //         );
+    //     }
+    //     if (this.client.oauth2Token) {
+    //         writeToFile(
+    //             path.join(dirPath, 'oauth2_token.json'),
+    //             JSON.stringify(this.client.oauth2Token)
+    //         );
+    //     }
+    // }
+    // loadTokenByFile(dirPath: string): void {
+    //     if (!checkIsDirectory(dirPath)) {
+    //         throw new Error('loadTokenByFile: Directory not found: ' + dirPath);
+    //     }
+    //     let oauth1Data = fs.readFileSync(
+    //         path.join(dirPath, 'oauth1_token.json')
+    //     ) as unknown as string;
+    //     const oauth1 = JSON.parse(oauth1Data);
+    //     this.client.oauth1Token = oauth1;
+    //
+    //     let oauth2Data = fs.readFileSync(
+    //         path.join(dirPath, 'oauth2_token.json')
+    //     ) as unknown as string;
+    //     const oauth2 = JSON.parse(oauth2Data);
+    //     this.client.oauth2Token = oauth2;
+    // }
     exportToken(): IGarminTokens {
         if (!this.client.oauth1Token || !this.client.oauth2Token) {
             throw new Error('exportToken: Token not found');
@@ -139,6 +140,7 @@ export default class GarminConnect {
             oauth2: this.client.oauth2Token
         };
     }
+
     // from db or localstorage etc
     loadToken(oauth1: IOauth1Token, oauth2: IOauth2Token): void {
         this.client.oauth1Token = oauth1;
@@ -173,6 +175,13 @@ export default class GarminConnect {
         );
     }
 
+    async getExerciseSets(activity: { activityId: GCActivityId }) {
+        if (!activity.activityId) throw new Error('Missing activityId');
+        return this.client.get<IActivityExerciseSet>(
+            this.url.EXERCISE_SETS(activity.activityId)
+        );
+    }
+
     async countActivities(): Promise<ICountActivities> {
         return this.client.get<ICountActivities>(this.url.STAT_ACTIVITIES, {
             params: {
@@ -184,69 +193,69 @@ export default class GarminConnect {
         });
     }
 
-    async downloadOriginalActivityData(
-        activity: { activityId: GCActivityId },
-        dir: string,
-        type: ExportFileTypeValue = 'zip'
-    ): Promise<void> {
-        if (!activity.activityId) throw new Error('Missing activityId');
-        if (!checkIsDirectory(dir)) {
-            createDirectory(dir);
-        }
-        let fileBuffer: Buffer;
-        if (type === 'tcx') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_TCX + activity.activityId
-            );
-        } else if (type === 'gpx') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_GPX + activity.activityId
-            );
-        } else if (type === 'kml') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_KML + activity.activityId
-            );
-        } else if (type === 'zip') {
-            fileBuffer = await this.client.get<Buffer>(
-                this.url.DOWNLOAD_ZIP + activity.activityId,
-                {
-                    responseType: 'arraybuffer'
-                }
-            );
-        } else {
-            throw new Error(
-                'downloadOriginalActivityData - Invalid type: ' + type
-            );
-        }
-        writeToFile(
-            path.join(dir, `${activity.activityId}.${type}`),
-            fileBuffer
-        );
-    }
+    // async downloadOriginalActivityData(
+    //     activity: { activityId: GCActivityId },
+    //     dir: string,
+    //     type: ExportFileTypeValue = 'zip'
+    // ): Promise<void> {
+    //     if (!activity.activityId) throw new Error('Missing activityId');
+    //     if (!checkIsDirectory(dir)) {
+    //         createDirectory(dir);
+    //     }
+    //     let fileBuffer: Buffer;
+    //     if (type === 'tcx') {
+    //         fileBuffer = await this.client.get(
+    //             this.url.DOWNLOAD_TCX + activity.activityId
+    //         );
+    //     } else if (type === 'gpx') {
+    //         fileBuffer = await this.client.get(
+    //             this.url.DOWNLOAD_GPX + activity.activityId
+    //         );
+    //     } else if (type === 'kml') {
+    //         fileBuffer = await this.client.get(
+    //             this.url.DOWNLOAD_KML + activity.activityId
+    //         );
+    //     } else if (type === 'zip') {
+    //         fileBuffer = await this.client.get<Buffer>(
+    //             this.url.DOWNLOAD_ZIP + activity.activityId,
+    //             {
+    //                 responseType: 'arraybuffer'
+    //             }
+    //         );
+    //     } else {
+    //         throw new Error(
+    //             'downloadOriginalActivityData - Invalid type: ' + type
+    //         );
+    //     }
+    //     writeToFile(
+    //         path.join(dir, `${activity.activityId}.${type}`),
+    //         fileBuffer
+    //     );
+    // }
 
-    async uploadActivity(
-        file: string,
-        format: UploadFileTypeTypeValue = 'fit'
-    ) {
-        const detectedFormat = (format || path.extname(file))?.toLowerCase();
-        if (!_.includes(UploadFileType, detectedFormat)) {
-            throw new Error('uploadActivity - Invalid format: ' + format);
-        }
-
-        const fileBuffer = fs.createReadStream(file);
-        const form = new FormData();
-        form.append('userfile', fileBuffer);
-        const response = await this.client.post(
-            this.url.UPLOAD + '.' + format,
-            form,
-            {
-                headers: {
-                    'Content-Type': form.getHeaders()['content-type']
-                }
-            }
-        );
-        return response;
-    }
+    // async uploadActivity(
+    //     file: string,
+    //     format: UploadFileTypeTypeValue = 'fit'
+    // ) {
+    //     const detectedFormat = (format || path.extname(file))?.toLowerCase();
+    //     if (!_.includes(UploadFileType, detectedFormat)) {
+    //         throw new Error('uploadActivity - Invalid format: ' + format);
+    //     }
+    //
+    //     const fileBuffer = fs.createReadStream(file);
+    //     const form = new FormData();
+    //     form.append('userfile', fileBuffer);
+    //     const response = await this.client.post(
+    //         this.url.UPLOAD + '.' + format,
+    //         form,
+    //         {
+    //             headers: {
+    //                 'Content-Type': form.getHeaders()['content-type']
+    //             }
+    //         }
+    //     );
+    //     return response;
+    // }
 
     async deleteActivity(activity: {
         activityId: GCActivityId;
@@ -263,6 +272,7 @@ export default class GarminConnect {
             }
         });
     }
+
     async getWorkoutDetail(workout: {
         workoutId: string;
     }): Promise<IWorkoutDetail> {
